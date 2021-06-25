@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-
+AWS_REGION=us-east-1
 echo 'AWS ECR dockercfg generator'
 
 : "${AWS_REGION:?Need to set AWS_REGION}"
@@ -42,6 +42,15 @@ echo "Logging into AWS ECR with Account ${AWS_ACCOUNT}"
 # AWS has deprecated the get-login function in favor of get-login-password
 # https://docs.aws.amazon.com/cli/latest/reference/ecr/get-login.html
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+# append existing docker login
+EXISTING_DOCKERCFG="/existing-dockercfg"
+if [ -f "$EXISTING_DOCKERCFG" ]; then
+  cat ~/.docker/config.json | jq --argjson dockercfg "$(cat $EXISTING_DOCKERCFG | jq '.auths')" '.auths += $dockercfg' | jq --argjson httpheaders "$(cat /existing-dockercfg | jq '.HttpHeaders')" '.HttpHeaders += $httpheaders' >> tmp-dockercfg.json
+  mv tmp-dockercfg.json ~/.docker/config.json
+else 
+  echo "$EXISTING_DOCKERCFG does not exist."
+fi
 
 # writing aws docker creds to desired path
 echo "Writing Docker creds to $1"
